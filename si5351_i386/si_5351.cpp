@@ -82,6 +82,9 @@ void Si5351::reset()
 	pll_reset(SI5351_PLLA);
 	pll_reset(SI5351_PLLB);
 
+	// Assign multisynth as input to CLK0
+	set_clock_source(SI5351_CLK0, SI5351_CLK_SRC_MS);
+
 	// Clear initial frequencies
 	for (uint8_t i = 0; i < 8; i++)
 	{
@@ -244,18 +247,19 @@ uint8_t Si5351::set_freq_manual(enum si5351_clock clk, uint64_t freq)
 
 	set_pll_freq(pll_assigned_to_clk[clk], pll_freq);
 
+	// Reset the PLL
+	pll_reset(pll_assigned_to_clk[clk]);
 	// Enable the output
 	set_clock_enable(clk, true);
 
 	return 0;
 }
 
-/*
- * Set the specified PLL to a specific oscillation frequency
- *
- * targetPLL	- PLLx to set
- * pll_freq		- Desired PLL frequency in Hz * 100
- */
+// Set the specified PLL to a specific oscillation frequency
+//
+// targetPLL	- PLLx to set
+// pll_freq		- Desired PLL frequency in Hz*100
+//
 void Si5351::set_pll_freq(enum si5351_pll targetPLL, uint64_t pll_freq)
 {
 	if (!bIsOnline) return;
@@ -522,13 +526,12 @@ void Si5351::set_clock_invert(enum si5351_clock clk, bool bInvert)
 	si5351_write(SI5351_CLK0_CTRL_ADDR + (uint8_t)clk, reg_val);
 }
 
-/*
- * clk - Clock output channel
- * src - Which clock source to use for the multisynth
- *
- * Set the clock source (based on the options presented for Registers 16-23 in the Silicon Labs AN619 document)
- * Choices are XTAL, CLKIN, MS0, or the multisynth associated with the clock output
- */
+// Set the clock source (Registers 16-23 in the Silicon Labs AN619 document)
+// Choices are XTAL, CLKIN, MS0, or the multisynth associated with the clock output
+//
+// clk - Clock output channel
+// src - Which clock source to use for the multisynth
+//
 void Si5351::set_clock_source(enum si5351_clock clk, enum si5351_clock_source src)
 {
 	if (!bIsOnline) return;
@@ -546,13 +549,14 @@ void Si5351::set_clock_source(enum si5351_clock clk, enum si5351_clock_source sr
 	case SI5351_CLK_SRC_CLKIN:
 		reg_val |= SI5351_CLK_INPUT_CLKIN;
 		break;
-	case SI5351_CLK_SRC_MS0:
+	case SI5351_CLK_SRC_MS_RELAY:
 		if (clk == SI5351_CLK0) return;		// not allowed combination for CLK0
+		if (clk == SI5351_CLK4) return;		// not allowed combination for CLK4
 
-		reg_val |= SI5351_CLK_INPUT_MULTISYNTH_0_4;
+		reg_val |= SI5351_CLK_INPUT_MULTISYNTH_RELAY;
 		break;
 	case SI5351_CLK_SRC_MS:
-		reg_val |= SI5351_CLK_INPUT_MULTISYNTH_N;
+		reg_val |= SI5351_CLK_INPUT_MULTISYNTH;
 		break;
 	default:
 		return;
